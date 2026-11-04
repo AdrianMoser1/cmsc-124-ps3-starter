@@ -19,6 +19,8 @@ misread. Those entries belong in the correction commits.
 
 `` `''(+ 1 2)` `` breaks down to `(quote (quote (+ 1 2)))`. Evaluating the outer quote returns the argument within unevaluated as the list `(quote (+ 1 2))`, which is the value. The list contains two top-level elements and starts with the special operator `quote`, making its kind `cons`, its length `4`, and its operator `special-operator`.
 
+Correction: I misevaluated the original case to be ''(+ 1 2) a nested quote that defers meaning. It's supposed to be just one ' thus the actual argument after the only supposed quote must be the value.
+
 ## P03
 
 `` `'nil` `` evaluates to the empty list and symbol `nil`. Because `nil` can act as the null value and an empty sequence, its kind is `null`, its sequence length is `0`, and since it is an atomic form, its operator is `none`.
@@ -42,6 +44,8 @@ misread. Those entries belong in the correction commits.
 ## P08
 
 `` `(if (null '()) 'empty 'full)` `` heads with the special operator `if`. The condition (null '()) evaluates to nil because an empty list represents falsy, causing the if statement to fail its test and evaluate to nil by default. That is the null value, so the kind is `null`, the length is `0`, and the head is a `special operator`.
+
+Correction: (null '()) tests whether () is null. Since the empty list () is indeed null, the test returns t (true). Because the condition is true, if evaluates and returns the then-branch ('empty), skipping the else-branch.
 
 ## P09
 
