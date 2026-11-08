@@ -26,8 +26,10 @@
 
 The first match wins, so an inner binding shadows an outer one that shares its
 name. Signal an error when NAME is not bound at all."
-  (declare (ignore name env))
-  (error "lookup is not implemented"))
+  (let ((pair (assoc name env)))
+    (if pair
+        (cdr pair)
+        (error "Name ~A is unbound in environment" name))))
 
 ;;; E2 -- prefix arithmetic.
 
@@ -85,11 +87,25 @@ CLOSURE is not a closure, and when the argument count does not match."
   (error "apply-closure is not implemented"))
 
 ;;; The dispatcher.
-
 (defun eval-expr (expr env)
   "The value of EXPR in ENV.
 
 Order the branches with care. NIL is a symbol as well as the empty list, and a
 number is not a cons, so the atom tests come before the list tests."
-  (declare (ignore expr env))
-  (error "eval-expr is not implemented"))
+  (cond
+    ((numberp expr) expr)
+    ((eq expr t) t)
+    ((null expr) nil)
+    ((symbolp expr) (lookup expr env))
+    ((consp expr)
+     (let ((op (car expr)))
+       (cond
+         ((eq op 'let) (eval-let expr env))
+         ((eq op 'lambda) (make-closure (second expr) (third expr) env))
+         ((member op '(+ - *))
+          (apply-op op (eval-operands (cdr expr) env)))
+         (t
+          (let ((fn (eval-expr op env))
+                (args (eval-operands (cdr expr) env)))
+            (apply-closure fn args))))))
+    (t (error "Invalid expression: ~A" expr))))
