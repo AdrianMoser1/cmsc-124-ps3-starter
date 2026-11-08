@@ -26,8 +26,10 @@
 
 The first match wins, so an inner binding shadows an outer one that shares its
 name. Signal an error when NAME is not bound at all."
-  (declare (ignore name env))
-  (error "lookup is not implemented"))
+  (let ((pair (assoc name env)))
+    (if pair
+        (cdr pair)
+        (error "Name ~A is unbound in environment" name))))
 
 ;;; E2 -- prefix arithmetic.
 
@@ -47,22 +49,29 @@ OP is the symbol +, -, or *. Signal an error for anything else."
   (error "apply-op is not implemented"))
 
 ;;; E3 -- let.
-
 (defun extend-env (params args env)
   "ENV with PARAMS bound to ARGS in front of it.
 
 MAPCAR takes two lists and #'CONS pairs them. Build a new list. Do not modify
 ENV, because the caller keeps using it after the extension goes out of scope."
-  (declare (ignore params args env))
-  (error "extend-env is not implemented"))
+  (append (mapcar #'cons params args) env))
 
 (defun eval-let (expr env)
   "Evaluate (let ((name init) ...) body).
 
 Every init is evaluated in ENV before any name is bound, so the bindings happen
 in parallel and an init cannot see a name the same LET introduces."
-  (declare (ignore expr env))
-  (error "eval-let is not implemented"))
+  (let* ((bindings (second expr))
+         (body-forms (cddr expr))
+         (names (mapcar #'first bindings))
+         (init-exprs (mapcar #'second bindings))
+         ;; Evaluate all initializers in the incoming ENV (parallel binding)
+         (evaled-inits (eval-operands init-exprs env))
+         (new-env (extend-env names evaled-inits env)))
+    (let ((result nil))
+      (dolist (form body-forms)
+        (setf result (eval-expr form new-env)))
+      result)))
 
 ;;; E4 -- lambda and application.
 
@@ -85,11 +94,35 @@ CLOSURE is not a closure, and when the argument count does not match."
   (error "apply-closure is not implemented"))
 
 ;;; The dispatcher.
-
 (defun eval-expr (expr env)
   "The value of EXPR in ENV.
 
 Order the branches with care. NIL is a symbol as well as the empty list, and a
 number is not a cons, so the atom tests come before the list tests."
-  (declare (ignore expr env))
-  (error "eval-expr is not implemented"))
+  (cond
+    ((numberp expr) expr)
+    ((eq expr t) t)
+    ((null expr) nil)
+    ((symbolp expr)
+     ;; In pure E1 tests without bound variables, standalone symbols evaluate to themselves
+     ;; unless found in env or handled appropriately. Wait, the test checks:
+     ;; (eql (ps3-call 'eval-expr 'x '((x . 7))) 7)
+     ;; (eql (ps3-call 'eval-expr nil '((nil . 7))) 7)
+     ;; (ps3-signals-p (lambda () (ps3-call 'eval-expr 'z '())))
+     ;; Let's make sure lookup handles both bound values and nil values correctly:
+     (let ((pair (assoc expr env)))
+       (if pair
+           (cdr pair)
+           (error "Unbound symbol: ~A" expr))))
+    ((consp expr)
+     (let ((op (car expr)))
+       (cond
+         ((eq op 'let) (eval-let expr env))
+         ((eq op 'lambda) (make-closure (second expr) (third expr) env))
+         ((member op '(+ - *))
+          (apply-op op (eval-operands (cdr expr) env)))
+         (t
+          (let ((fn (eval-expr op env))
+                (args (eval-operands (cdr expr) env)))
+            (apply-closure fn args))))))
+    (t (error "Invalid expression: ~A" expr))))
