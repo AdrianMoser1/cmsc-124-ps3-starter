@@ -52,7 +52,7 @@ OP is the symbol +, -, or *. Signal an error for anything else."
       (- (- a b))
       (* (* a b))
       (t (error "apply-op: unknown operator ~A" op)))))
-      
+
 ;;; E3 -- let.
 (defun extend-env (params args env)
   "ENV with PARAMS bound to ARGS in front of it.
@@ -87,17 +87,21 @@ Return the list (:closure params body env). ENV is the environment the lambda
 was written in, not the one it will later be called from. Saving the wrong one
 is what makes the difference between 3 and 101 in the case the manual walks
 through."
-  (declare (ignore params body env))
-  (error "make-closure is not implemented"))
+  (list :closure params body env))
 
 (defun apply-closure (closure args)
   "Run CLOSURE on ARGS.
 
 The parameters join the environment the closure captured. Signal an error when
 CLOSURE is not a closure, and when the argument count does not match."
-  (declare (ignore closure args))
-  (error "apply-closure is not implemented"))
-
+  (unless (and (consp closure) (eq (first closure) :closure))
+    (error "apply-closure: not a closure: ~A" closure))
+  (destructuring-bind (params body env) (rest closure)
+    (unless (= (length params) (length args))
+      (error "apply-closure: expected ~D arguments, got ~D"
+             (length params) (length args)))
+    ;; Extend the captured ENV, never the caller's: this line makes scope lexical.
+    (eval-expr body (extend-env params args env))))
 ;;; The dispatcher.
 (defun eval-expr (expr env)
   "The value of EXPR in ENV.
