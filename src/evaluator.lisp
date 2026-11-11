@@ -38,16 +38,21 @@ name. Signal an error when NAME is not bound at all."
 
 MAPCAR and a LAMBDA do this in one line. Watch the arity: EVAL-EXPR takes two
 arguments and MAPCAR hands its function one."
-  (declare (ignore exprs env))
-  (error "eval-operands is not implemented"))
+  ;; The lambda takes the one argument MAPCAR passes and closes over ENV.
+  (mapcar (lambda (expr) (eval-expr expr env)) exprs))
 
 (defun apply-op (op values)
   "Apply the arithmetic operator OP to the two numbers in VALUES.
 
 OP is the symbol +, -, or *. Signal an error for anything else."
-  (declare (ignore op values))
-  (error "apply-op is not implemented"))
-
+  (let ((a (first values))
+        (b (second values)))
+    (case op
+      (+ (+ a b))
+      (- (- a b))
+      (* (* a b))
+      (t (error "apply-op: unknown operator ~A" op)))))
+      
 ;;; E3 -- let.
 (defun extend-env (params args env)
   "ENV with PARAMS bound to ARGS in front of it.
