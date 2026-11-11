@@ -110,19 +110,8 @@ Order the branches with care. NIL is a symbol as well as the empty list, and a
 number is not a cons, so the atom tests come before the list tests."
   (cond
     ((numberp expr) expr)
-    ((eq expr t) t)
-    ((null expr) nil)
-    ((symbolp expr)
-     ;; In pure E1 tests without bound variables, standalone symbols evaluate to themselves
-     ;; unless found in env or handled appropriately. Wait, the test checks:
-     ;; (eql (ps3-call 'eval-expr 'x '((x . 7))) 7)
-     ;; (eql (ps3-call 'eval-expr nil '((nil . 7))) 7)
-     ;; (ps3-signals-p (lambda () (ps3-call 'eval-expr 'z '())))
-     ;; Let's make sure lookup handles both bound values and nil values correctly:
-     (let ((pair (assoc expr env)))
-       (if pair
-           (cdr pair)
-           (error "Unbound symbol: ~A" expr))))
+    ;; NIL and T are ordinary symbols here, so they go through LOOKUP too.
+    ((symbolp expr) (lookup expr env))
     ((consp expr)
      (let ((op (car expr)))
        (cond
@@ -130,8 +119,7 @@ number is not a cons, so the atom tests come before the list tests."
          ((eq op 'lambda) (make-closure (second expr) (third expr) env))
          ((member op '(+ - *))
           (apply-op op (eval-operands (cdr expr) env)))
-         (t
-          (let ((fn (eval-expr op env))
-                (args (eval-operands (cdr expr) env)))
-            (apply-closure fn args))))))
+         ;; Operator position can be any expression, not only a name.
+         (t (apply-closure (eval-expr op env)
+                           (eval-operands (cdr expr) env))))))
     (t (error "Invalid expression: ~A" expr))))
