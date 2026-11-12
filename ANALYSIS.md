@@ -1,7 +1,9 @@
 # Environments and the Toy Evaluator
 
-Replace this paragraph after your checks pass. Trace one form through your own
-`eval-expr`, point to the line that captures the defining environment, say what
-would change if application joined the arguments to the caller's environment
-instead, and explain why the host CLISP needs `funcall` where the toy language
-doesn't.
+Our toy evaluator implements a Lisp-1 interpreter that demonstrates the fundamental mechanics of lexical scoping, closure capture, and name resolution. To understand how these components interact, we can trace a lexical scoping form through our implementation, such as evaluating `(let ((x 2)) (let ((f (lambda (y) (+ x y)))) (let ((x 100)) (f 1))))`. 
+
+When the outer `let` binds `x` to `2`, `eval-let` extends the environment and evaluates its body. Encountering the `lambda` form, `eval-expr` dispatches to `make-closure` via `(list :closure params body env)`. This specific line is critical because it captures the active lexical environment `env` at definition time—binding `x` to `2`—rather than waiting for execution time. 
+
+When `(f 1)` is eventually called inside the innermost scope where `x` is temporarily rebound to `100`, `apply-closure` retrieves the captured environment from the closure object and extends it with `y = 1`. Because `lookup` searches this captured association list first, it resolves `x` to `2`, producing a final result of `3`. Under dynamic scoping, however, the function would look up `x` in the caller's active runtime stack rather than its definition site. Consequently, dynamic scope would resolve `x` to the innermost binding of `100`, returning `101` instead of `3` because it evaluates free variables based on the execution context rather than lexical ancestry.
+
+Furthermore, our evaluator highlights the distinction between Lisp-1 and Lisp-2 architectures. The toy language uses a single, unified namespace for both variables and functions. Because variable values and function bindings share this identical namespace, a symbol bound to a closure can appear directly in operator position, allowing forms like `(f 1)` to execute natively without requiring explicit function dispatchers. In contrast, GNU Common Lisp hosts this project as a Lisp-2, maintaining separate namespaces for values and functions. This architectural difference is why our host implementation requires explicit constructs like `funcall` and the `#'` operator to invoke closures stored inside ordinary variable bindings, bridging the gap between our Lisp-1 evaluation model and the host Lisp-2 runtime.
